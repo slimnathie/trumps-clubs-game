@@ -40,3 +40,8 @@ Friend lists are stored locally in each browser because this edition deliberatel
 ## Turn timer and forfeiting
 
 Each action turn has a server-enforced 30-second countdown. If it expires, a legal card is selected automatically; during trump selection, the suit most represented in the player's hand is selected. Players can use **Forfeit game** to leave an active match cleanly.
+
+
+## In-app rules
+
+Players can open **How to play** from the home screen or tap the **?** button during a game.

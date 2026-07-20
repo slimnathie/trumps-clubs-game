@@ -47,6 +47,7 @@
           <div id="friendsList" class="friend-list empty-state">Add a friend using their code.</div>
         </div>
       </section>
+      <button id="openRulesHome" class="ghost wide rules-link">How to play</button>
       <p id="homeError" class="error" role="alert"></p>
     </section>
 
@@ -54,6 +55,7 @@
       <header class="game-topbar">
         <button id="leaveRoom" class="icon-button" aria-label="Leave room">‹</button>
         <div><strong id="roomName"></strong><span>Code <b id="roomCode"></b></span></div>
+        <button id="openRulesGame" class="icon-button" aria-label="How to play">?</button>
         <button id="soundToggle" class="icon-button" aria-label="Toggle sound">🔊</button>
       </header>
 
@@ -87,6 +89,73 @@
         <div class="chat-compose"><input id="chatInput" maxlength="240" placeholder="Message the table"><button id="sendChat" class="primary">Send</button></div>
       </aside>
     </section>
+
+
+    <dialog id="rulesDialog" class="rules-dialog">
+      <section class="dialog-card rules-card">
+        <header class="rules-header">
+          <div><p class="eyebrow">LAST TRICK STANDING</p><h2>How to play</h2></div>
+          <button id="closeRules" class="icon-button" aria-label="Close rules">×</button>
+        </header>
+
+        <div class="rules-scroll">
+          <section class="rule-callout">
+            <strong>Win at least one trick to survive.</strong>
+            <span>Be the last player remaining.</span>
+          </section>
+
+          <section class="rule-section">
+            <h3>1. The rounds</h3>
+            <p>Round 1 starts with 7 cards per player. Each new round deals one fewer card: 6, 5, 4, 3, 2, then 1.</p>
+          </section>
+
+          <section class="rule-section">
+            <h3>2. Trump</h3>
+            <p>In Round 1, the top card of the remaining deck is turned over. Its suit becomes trump.</p>
+            <p>From Round 2 onward, the player who won the most tricks in the previous round chooses trump after seeing their new hand.</p>
+          </section>
+
+          <section class="rule-section">
+            <h3>3. Playing a trick</h3>
+            <p>The player to the dealer's right leads the first card. After that, the winner of each trick leads the next one.</p>
+            <ul>
+              <li>You must follow the suit that was led when you can.</li>
+              <li>If you cannot follow suit, you may play any card.</li>
+              <li>Any trump beats every non-trump card.</li>
+              <li>If several trumps are played, the highest trump wins.</li>
+              <li>If no trump is played, the highest card of the led suit wins.</li>
+            </ul>
+          </section>
+
+          <section class="rule-section">
+            <h3>4. Surviving a round</h3>
+            <p>Every trick you win counts as 1. Win at least one trick to stay in the game.</p>
+            <p>Players who win no tricks are eliminated — except in Round 1, when they receive their one Doggie Life and may continue into Round 2.</p>
+          </section>
+
+          <section class="rule-section">
+            <h3>5. Who chooses next trump?</h3>
+            <p>The player with the most tricks wins the round and chooses trump for the next round.</p>
+            <p>If players tie for the most tricks, they cut cards. Highest card wins the cut. Equal ranks cut again.</p>
+          </section>
+
+          <section class="rule-section">
+            <h3>6. Turn timer</h3>
+            <p>You have 30 seconds to play. If time runs out, the game automatically plays a legal card from your hand.</p>
+          </section>
+
+          <section class="rule-section">
+            <h3>7. Winning the game</h3>
+            <p>The last player remaining wins. The one-card final round is pot luck: everyone has only one card, and the normal follow-suit and trump rules still decide the winner.</p>
+          </section>
+
+          <section class="rule-tip">
+            <strong>Strategy tip</strong>
+            <span>Your first priority is one safe trick. After that, extra tricks can earn you control of next round's trump.</span>
+          </section>
+        </div>
+      </section>
+    </dialog>
 
     <dialog id="createDialog">
       <form method="dialog" class="dialog-card">

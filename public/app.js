@@ -160,6 +160,12 @@ function renderChat(){
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 
+function openRules(){ $('rulesDialog').showModal(); }
+$('openRulesHome').onclick=openRules;
+$('openRulesGame').onclick=openRules;
+$('closeRules').onclick=()=>$('rulesDialog').close();
+$('rulesDialog').addEventListener('click',e=>{if(e.target===$('rulesDialog'))$('rulesDialog').close();});
+
 $('name').addEventListener('change',saveProfile);
 document.querySelectorAll('.tab').forEach(tab=>tab.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('.tab-pane').forEach(x=>x.classList.toggle('active',x.id===tab.dataset.tab));});
 $('copyFriendCode').onclick=async()=>{await navigator.clipboard?.writeText(profile.friendCode);toast('Friend code copied');};
