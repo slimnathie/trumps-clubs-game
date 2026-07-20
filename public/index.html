@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Last Trick Standing</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main>
+    <section id="login" class="panel login-panel">
+      <h1>Last Trick Standing</h1>
+      <p class="subtitle">A private-hand multiplayer trick-taking survival game.</p>
+      <label>Player name<input id="name" maxlength="20" autocomplete="nickname" /></label>
+      <div class="actions"><button id="create">Create room</button></div>
+      <div class="divider">or</div>
+      <label>Room code<input id="code" maxlength="5" autocomplete="off" /></label>
+      <div class="actions"><button id="join">Join room</button></div>
+      <p id="loginError" class="error" aria-live="polite"></p>
+    </section>
+
+    <section id="game" hidden>
+      <header class="topbar">
+        <div><strong>Room <span id="roomCode"></span></strong><div id="roundLabel" class="muted"></div></div>
+        <div class="trump"><span>Trump</span><strong id="trump">—</strong></div>
+      </header>
+      <div id="message" class="message"></div>
+
+      <section id="lobby" class="panel" hidden>
+        <h2>Players</h2><div id="lobbyPlayers"></div>
+        <button id="start">Start game</button><p class="muted">Share the room code. Each player joins on their own device.</p>
+      </section>
+
+      <section id="table" hidden>
+        <div class="metrics">
+          <div class="metric"><span>Your tricks</span><strong id="myTricks">0</strong></div>
+          <div class="metric"><span>Cards left</span><strong id="cardsLeft">0</strong></div>
+          <div class="metric"><span>Doggie Life</span><strong id="doggie">Available</strong></div>
+        </div>
+        <div class="panel"><h2>Players</h2><div id="players" class="players"></div></div>
+        <div class="panel"><h2>Current trick</h2><div id="trick" class="trick"></div></div>
+        <div id="turnedWrap" class="panel" hidden><h2>Turned card</h2><div id="turned"></div></div>
+        <div id="chooseTrump" class="panel" hidden><h2>Choose trump</h2><div class="suit-buttons"></div></div>
+        <div class="panel"><h2>Your hand</h2><div id="hand" class="hand"></div><p id="handHint" class="muted"></p></div>
+        <button id="nextRound" hidden>Deal next round</button>
+      </section>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
