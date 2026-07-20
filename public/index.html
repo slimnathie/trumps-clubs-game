@@ -1,50 +1,111 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#123d2c">
   <title>Last Trick Standing</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <section id="login" class="panel login-panel">
-      <h1>Last Trick Standing</h1>
-      <p class="subtitle">A private-hand multiplayer trick-taking survival game.</p>
-      <label>Player name<input id="name" maxlength="20" autocomplete="nickname" /></label>
-      <div class="actions"><button id="create">Create room</button></div>
-      <div class="divider">or</div>
-      <label>Room code<input id="code" maxlength="5" autocomplete="off" /></label>
-      <div class="actions"><button id="join">Join room</button></div>
-      <p id="loginError" class="error" aria-live="polite"></p>
-    </section>
-
-    <section id="game" hidden>
-      <header class="topbar">
-        <div><strong>Room <span id="roomCode"></span></strong><div id="roundLabel" class="muted"></div></div>
-        <div class="trump"><span>Trump</span><strong id="trump">—</strong></div>
+  <main id="app">
+    <section id="home" class="screen active">
+      <header class="hero">
+        <div class="logo-mark">♣</div>
+        <div><p class="eyebrow">ONLINE CARD GAME</p><h1>Last Trick Standing</h1><p>Win one trick. Stay alive.</p></div>
       </header>
-      <div id="message" class="message"></div>
 
-      <section id="lobby" class="panel" hidden>
-        <h2>Players</h2><div id="lobbyPlayers"></div>
-        <button id="start">Start game</button><p class="muted">Share the room code. Each player joins on their own device.</p>
+      <section class="panel identity-panel">
+        <label>Player name<input id="name" maxlength="20" autocomplete="nickname" placeholder="Your name"></label>
+        <div class="friend-code-row"><span>Your friend code</span><strong id="myFriendCode"></strong><button id="copyFriendCode" class="ghost small">Copy</button></div>
       </section>
 
-      <section id="table" hidden>
-        <div class="metrics">
-          <div class="metric"><span>Your tricks</span><strong id="myTricks">0</strong></div>
-          <div class="metric"><span>Cards left</span><strong id="cardsLeft">0</strong></div>
-          <div class="metric"><span>Doggie Life</span><strong id="doggie">Available</strong></div>
+      <nav class="tabs" aria-label="Lobby sections">
+        <button class="tab active" data-tab="publicPane">Public games</button>
+        <button class="tab" data-tab="privatePane">Private game</button>
+        <button class="tab" data-tab="friendsPane">Friends</button>
+      </nav>
+
+      <section id="publicPane" class="tab-pane active">
+        <div class="section-head"><div><h2>Public lobby</h2><p>Join anyone online.</p></div><button id="refreshRooms" class="icon-button" aria-label="Refresh">↻</button></div>
+        <div id="publicRooms" class="room-list empty-state">No public games yet.</div>
+        <button id="openCreatePublic" class="primary wide">Create public game</button>
+      </section>
+
+      <section id="privatePane" class="tab-pane">
+        <div class="stack">
+          <button id="openCreatePrivate" class="primary wide">Create private game</button>
+          <div class="divider"><span>or join with code</span></div>
+          <label>Invite code<input id="joinCode" maxlength="5" autocapitalize="characters" placeholder="ABCDE"></label>
+          <button id="joinPrivate" class="secondary wide">Join game</button>
         </div>
-        <div class="panel"><h2>Players</h2><div id="players" class="players"></div></div>
-        <div class="panel"><h2>Current trick</h2><div id="trick" class="trick"></div></div>
-        <div id="turnedWrap" class="panel" hidden><h2>Turned card</h2><div id="turned"></div></div>
-        <div id="chooseTrump" class="panel" hidden><h2>Choose trump</h2><div class="suit-buttons"></div></div>
-        <div class="panel"><h2>Your hand</h2><div id="hand" class="hand"></div><p id="handHint" class="muted"></p></div>
-        <button id="nextRound" hidden>Deal next round</button>
       </section>
+
+      <section id="friendsPane" class="tab-pane">
+        <div class="stack">
+          <div class="friend-add"><input id="friendCodeInput" maxlength="12" placeholder="Friend code"><button id="addFriend" class="secondary">Add</button></div>
+          <div id="friendsList" class="friend-list empty-state">Add a friend using their code.</div>
+        </div>
+      </section>
+      <p id="homeError" class="error" role="alert"></p>
     </section>
+
+    <section id="game" class="screen">
+      <header class="game-topbar">
+        <button id="leaveRoom" class="icon-button" aria-label="Leave room">‹</button>
+        <div><strong id="roomName"></strong><span>Code <b id="roomCode"></b></span></div>
+        <button id="soundToggle" class="icon-button" aria-label="Toggle sound">🔊</button>
+      </header>
+
+      <section id="lobby" class="lobby-view">
+        <div class="invite-card"><div><span>Invite code</span><strong id="bigRoomCode"></strong></div><button id="shareRoom" class="secondary">Share</button></div>
+        <div class="section-head"><div><h2>Players</h2><p id="lobbyStatus"></p></div></div>
+        <div id="lobbyPlayers" class="player-list"></div>
+        <div class="lobby-actions"><button id="inviteFriends" class="secondary wide">Invite friends</button><button id="start" class="primary wide">Start game</button></div>
+      </section>
+
+      <section id="table" class="table-view">
+        <div class="status-strip"><span id="roundLabel"></span><strong id="message"></strong><div id="turnTimer" class="turn-timer" hidden><span id="timerPlayer">Turn</span><b id="timerSeconds">30</b><i></i></div></div>
+        <div id="opponents" class="opponents"></div>
+        <div class="felt-table">
+          <div class="trump-chip"><span>TRUMP</span><strong id="trump">—</strong></div>
+          <div id="trick" class="trick-area"><span class="placeholder">Waiting for the lead…</span></div>
+          <div id="turnedWrap" class="turned-wrap"><span>Turned card</span><div id="turned"></div></div>
+        </div>
+        <div id="chooseTrump" class="choose-trump"><h3>Choose the trump suit</h3><div class="suit-buttons"></div></div>
+        <div class="my-summary"><span><b id="myTricks">0</b> tricks</span><span><b id="cardsLeft">0</b> cards</span><span id="doggie">Doggie life available</span></div>
+        <p id="handHint" class="hand-hint"></p>
+        <div id="hand" class="hand"></div>
+        <button id="nextRound" class="primary wide">Deal next round</button>
+        <button id="forfeitGame" class="danger-button wide">Forfeit game</button>
+      </section>
+
+      <button id="chatToggle" class="chat-fab" aria-label="Open chat">💬<span id="chatUnread"></span></button>
+      <aside id="chatDrawer" class="chat-drawer" aria-hidden="true">
+        <header><strong>Table chat</strong><button id="closeChat" class="icon-button">×</button></header>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-compose"><input id="chatInput" maxlength="240" placeholder="Message the table"><button id="sendChat" class="primary">Send</button></div>
+      </aside>
+    </section>
+
+    <dialog id="createDialog">
+      <form method="dialog" class="dialog-card">
+        <h2 id="createTitle">Create game</h2>
+        <label>Table name<input id="newRoomName" maxlength="20" placeholder="Friday night table"></label>
+        <label>Maximum players<select id="maxPlayers"><option>4</option><option>5</option><option>6</option><option selected>8</option></select></label>
+        <div class="dialog-actions"><button value="cancel" class="ghost">Cancel</button><button id="confirmCreate" value="default" class="primary">Create</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="forfeitDialog">
+      <form method="dialog" class="dialog-card"><h2>Forfeit this game?</h2><p>You will be removed from play and cannot rejoin this game.</p><div class="dialog-actions"><button value="cancel" class="ghost">Keep playing</button><button id="confirmForfeit" value="default" class="danger-button">Forfeit</button></div></form>
+    </dialog>
+
+    <dialog id="friendsDialog">
+      <form method="dialog" class="dialog-card"><h2>Invite friends</h2><div id="inviteFriendList" class="friend-list"></div><button value="cancel" class="ghost wide">Done</button></form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status"></div>
   </main>
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>

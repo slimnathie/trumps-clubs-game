@@ -1,34 +1,42 @@
-# Last Trick Standing
+# Last Trick Standing — Version 2
 
-A real-time multiplayer browser game based on the described house rules.
+A mobile-first online multiplayer implementation of the family card game previously called Trumps/Clubs.
 
-## Included
+## Features
 
-- Room creation and five-character room codes
-- Nickname-based player joining
-- Each player sees only their own hand
-- Server-authoritative dealing and play validation
-- Follow-suit enforcement
-- Trump suit and turned-card display
-- Trick winner calculation and next-leader handling
-- Seven-card opening round, then decreasing hand sizes
-- Round-one Doggie Life
-- Elimination for zero tricks after later rounds
-- Most-tricks round winner chooses the next trump suit
-- Automatic high-card cut when most tricks are tied
-- One-card final showdown
+- Private hands and server-enforced follow-suit rules
+- Public room browser and private invite-code rooms
+- Device-based friend codes with online presence and game invitations
+- In-game chat
+- Animated cards, trick animations, mobile felt-table layout
+- Optional subtle sound effects
+- Reconnection to an active game after a page refresh or brief connection loss
+- Doggie Life in round one, elimination rounds, tie cuts, trump selection, and one-card final
 
 ## Run locally
 
-1. Install Node.js 18 or newer.
-2. In this folder run:
+```bash
+npm install
+npm start
+```
 
-   npm install
-   npm start
+Open `http://localhost:3000` in two or more browser windows/devices.
 
-3. Open `http://localhost:3000`.
-4. Other players on the same network can use your computer's local IP address, for example `http://192.168.1.20:3000`.
+## Deploy on Render
 
-## Notes
+- Runtime: Node
+- Build command: `npm install`
+- Start command: `npm start`
 
-This MVP uses room nicknames rather than permanent accounts. Rooms are stored in memory and reset when the server restarts. For public deployment, add HTTPS, persistent storage, reconnection tokens, account authentication, and a production host such as Render, Railway, Fly.io, or a VPS.
+The server uses `process.env.PORT` automatically.
+
+## Important architecture note
+
+Rooms, chat and online presence are stored in server memory. A Render restart or redeploy clears active games. For a large public launch, move room/session state to Redis and add moderation/rate limits.
+
+Friend lists are stored locally in each browser because this edition deliberately has no user accounts.
+
+
+## Turn timer and forfeiting
+
+Each action turn has a server-enforced 30-second countdown. If it expires, a legal card is selected automatically; during trump selection, the suit most represented in the player's hand is selected. Players can use **Forfeit game** to leave an active match cleanly.

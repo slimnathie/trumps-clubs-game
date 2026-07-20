@@ -1,15 +1,10 @@
 {
-  "name": "trumps-clubs-game",
-  "version": "1.0.0",
+  "name": "last-trick-standing",
+  "version": "2.0.0",
   "private": true,
-  "description": "Multiplayer trick-taking elimination card game",
+  "description": "Mobile-first online multiplayer trick-taking survival card game",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.21.2",
-    "socket.io": "^4.8.1"
-  }
+  "scripts": { "start": "node server.js", "check": "node --check server.js && node --check public/app.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "express": "^4.21.2", "socket.io": "^4.8.1" }
 }
