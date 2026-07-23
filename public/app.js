@@ -14,11 +14,13 @@ let timerTick = null;
 const profile = {
   name: localStorage.getItem('ltsName') || '',
   friendCode: localStorage.getItem('ltsFriendCode') || makeFriendCode(),
-  friends: JSON.parse(localStorage.getItem('ltsFriends') || '[]')
+  friends: JSON.parse(localStorage.getItem('ltsFriends') || '[]'),
+  matchesWon: Number(localStorage.getItem('ltsMatchesWon') || 0)
 };
 localStorage.setItem('ltsFriendCode', profile.friendCode);
 $('name').value = profile.name;
 $('myFriendCode').textContent = profile.friendCode;
+$('myMatchesWon').textContent = profile.matchesWon;
 $('soundToggle').textContent = audioEnabled ? '🔊' : '🔇';
 
 function makeFriendCode(){
@@ -48,7 +50,7 @@ function cardEl(card,button=false){
   return el;
 }
 function currentName(){saveProfile();return profile.name;}
-function commonPayload(){return {name:currentName(),friendCode:profile.friendCode};}
+function commonPayload(){return {name:currentName(),friendCode:profile.friendCode,matchesWon:profile.matchesWon};}
 function storeSession(code,token){localStorage.setItem('ltsSession',JSON.stringify({code,reconnectToken:token}));}
 function clearSession(){localStorage.removeItem('ltsSession');}
 
@@ -63,6 +65,7 @@ socket.on('gameInvite',invite=>{
   toast(`${invite.from} invited you to ${invite.roomName}`);
   if(confirm(`${invite.from} invited you to ${invite.roomName}. Join now?`)) joinCode(invite.roomCode);
 });
+socket.on('matchWon',({matchesWon})=>{ profile.matchesWon=Math.max(profile.matchesWon,Number(matchesWon)||0); localStorage.setItem('ltsMatchesWon',profile.matchesWon); $('myMatchesWon').textContent=profile.matchesWon; });
 socket.on('state',s=>{
   const oldTrick=state?.trick?.length||0;
   state=s; showScreen('game');
@@ -127,7 +130,7 @@ function renderGame(){
 function renderLobby(){
   $('lobbyStatus').textContent=`${state.players.length}/${state.maxPlayers} players · ${state.isPublic?'Public':'Private'}`;
   const wrap=$('lobbyPlayers');wrap.innerHTML='';state.players.forEach(p=>{
-    const el=document.createElement('div');el.className='player-row';el.innerHTML=`<div class="player-avatar">${escapeHtml(p.name[0]?.toUpperCase()||'?')}</div><div><strong>${escapeHtml(p.name)}${p.id===state.me.id?' (you)':''}</strong><span>${p.isHost?'Host':p.connected?'Ready':'Disconnected'}</span></div>`;wrap.appendChild(el);
+    const el=document.createElement('div');el.className='player-row';el.innerHTML=`<div class="player-avatar">${escapeHtml(p.name[0]?.toUpperCase()||'?')}</div><div><strong>${escapeHtml(p.name)}${p.id===state.me.id?' (you)':''}</strong><span>${p.isHost?'Host · ':''}${p.connected?'Ready':'Disconnected'} · ${p.matchesWon||0} match win${(p.matchesWon||0)===1?'':'s'}</span></div>`;wrap.appendChild(el);
   });
   $('start').hidden=state.hostId!==socket.id;
 }
@@ -139,7 +142,7 @@ function renderTable(){
   const opponents=$('opponents');opponents.innerHTML='';state.players.filter(p=>p.id!==state.me?.id).forEach(p=>{
     const el=document.createElement('div');el.className='opponent';
     const backs=Array.from({length:Math.min(4,p.handCount)},()=>'<i class="card-back-mini"></i>').join('');
-    el.innerHTML=`<div class="mini-hand">${backs}</div><strong>${escapeHtml(p.name)}</strong><small>${p.tricks} trick${p.tricks===1?'':'s'}${p.eliminated?' · out':''}</small>`;opponents.appendChild(el);
+    el.innerHTML=`<div class="mini-hand">${backs}</div><strong>${escapeHtml(p.name)}</strong><small>${p.tricks} trick${p.tricks===1?'':'s'} · ${p.matchesWon||0} match win${(p.matchesWon||0)===1?'':'s'}${p.eliminated?' · out':''}</small>`;opponents.appendChild(el);
   });
   const trick=$('trick');trick.innerHTML='';if(!state.trick.length)trick.innerHTML='<span class="placeholder">Waiting for the lead…</span>';state.trick.forEach(t=>{
     const wrap=document.createElement('div');wrap.className='played-card';wrap.appendChild(cardEl(t.card));const name=document.createElement('small');name.textContent=state.players.find(p=>p.id===t.playerId)?.name||'';wrap.appendChild(name);trick.appendChild(wrap);
@@ -148,7 +151,16 @@ function renderTable(){
   const chooser=state.phase==='chooseTrump'&&state.currentPlayerId===state.me?.id;$('chooseTrump').hidden=!chooser;const sb=$('chooseTrump').querySelector('.suit-buttons');sb.innerHTML='';if(chooser)Object.keys(suits).forEach(s=>{const b=document.createElement('button');b.textContent=suits[s];b.setAttribute('aria-label',s);b.onclick=async()=>{sound();const r=await act('chooseTrump',{suit:s});if(r?.error)toast(r.error)};sb.appendChild(b);});
   renderHand();$('nextRound').hidden=!(state.phase==='roundEnd'&&state.hostId===socket.id);
   $('forfeitGame').hidden=state.phase==='gameOver'||state.me?.eliminated;
-  if(state.phase==='gameOver'){const w=state.players.find(p=>p.id===state.winnerId);$('handHint').textContent=`🏆 ${w?.name||'A player'} wins!`;sound('win');}
+  const winnerOverlay=$('winnerOverlay');
+  if(state.phase==='gameOver'){
+    const w=state.players.find(p=>p.id===state.winnerId);
+    $('winnerName').textContent=w?.name||'A player';
+    $('winnerWins').textContent=`${w?.matchesWon||0} match win${(w?.matchesWon||0)===1?'':'s'}`;
+    $('playAgain').hidden=state.hostId!==socket.id;
+    $('waitingForHost').hidden=state.hostId===socket.id;
+    winnerOverlay.hidden=false;
+    if(winnerOverlay.dataset.winner!==state.winnerId){winnerOverlay.dataset.winner=state.winnerId||'';sound('win');}
+  }else{winnerOverlay.hidden=true;winnerOverlay.dataset.winner='';}
 }
 function renderHand(){
   const wrap=$('hand');wrap.innerHTML='';const isTurn=state.phase==='playing'&&state.currentPlayerId===state.me?.id;const ledSuit=state.trick[0]?.card.suit;const hasLed=ledSuit&&state.me.hand.some(c=>c.suit===ledSuit);
@@ -181,6 +193,9 @@ async function leaveToHome(){await act('leaveRoom');clearSession();state=null;cl
 $('leaveRoom').onclick=async()=>{if(state?.phase&&state.phase!=='lobby'&&state.phase!=='gameOver'){$('forfeitDialog').showModal();return;}await leaveToHome();};
 $('forfeitGame').onclick=()=>$('forfeitDialog').showModal();
 $('confirmForfeit').onclick=async e=>{e.preventDefault();const r=await act('forfeitGame');if(r?.error){toast(r.error);return;}$('forfeitDialog').close();clearSession();state=null;clearInterval(timerTick);showScreen('home');toast('Game forfeited');};
+
+$('playAgain').onclick=async()=>{const r=await act('playAgain');if(r?.error)toast(r.error);};
+$('winnerLeave').onclick=leaveToHome;
 $('shareRoom').onclick=async()=>{const text=`Join my Last Trick Standing game. Room code: ${state.code}`;if(navigator.share)await navigator.share({title:'Game invite',text,url:location.origin});else{await navigator.clipboard?.writeText(`${text} ${location.origin}`);toast('Invite copied');}};
 $('inviteFriends').onclick=()=>{renderInviteFriends();$('friendsDialog').showModal();};
 $('soundToggle').onclick=()=>{audioEnabled=!audioEnabled;localStorage.setItem('ltsSound',audioEnabled?'on':'off');$('soundToggle').textContent=audioEnabled?'🔊':'🔇';sound();};

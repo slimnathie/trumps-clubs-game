@@ -17,7 +17,7 @@
 
       <section class="panel identity-panel">
         <label>Player name<input id="name" maxlength="20" autocomplete="nickname" placeholder="Your name"></label>
-        <div class="friend-code-row"><span>Your friend code</span><strong id="myFriendCode"></strong><button id="copyFriendCode" class="ghost small">Copy</button></div>
+        <div class="friend-code-row"><span>Your friend code</span><strong id="myFriendCode"></strong><button id="copyFriendCode" class="ghost small">Copy</button></div><div class="profile-stat"><span>Matches won</span><strong id="myMatchesWon">0</strong></div>
       </section>
 
       <nav class="tabs" aria-label="Lobby sections">
@@ -80,6 +80,19 @@
         <div id="hand" class="hand"></div>
         <button id="nextRound" class="primary wide">Deal next round</button>
         <button id="forfeitGame" class="danger-button wide">Forfeit game</button>
+      </section>
+
+
+      <section id="winnerOverlay" class="winner-overlay" hidden aria-live="assertive">
+        <div class="winner-burst">🏆</div>
+        <p>LAST TRICK STANDING</p>
+        <h2><span id="winnerName"></span> wins!</h2>
+        <strong id="winnerWins" class="winner-stat"></strong>
+        <div class="winner-actions">
+          <button id="playAgain" class="primary wide">Play again</button>
+          <p id="waitingForHost" class="waiting-host">Waiting for the host to set up another match…</p>
+          <button id="winnerLeave" class="secondary wide">Leave game</button>
+        </div>
       </section>
 
       <button id="chatToggle" class="chat-fab" aria-label="Open chat">💬<span id="chatUnread"></span></button>

@@ -117,12 +117,12 @@ function stateFor(room, socketId) {
       id: p.id, name: p.name, friendCode: p.friendCode, connected: p.connected,
       active: p.active, eliminated: p.eliminated, doggieLifeUsed: p.doggieLifeUsed,
       doggieLifeGranted: p.doggieLifeGranted, tricks: p.tricks, handCount: p.hand.length,
-      isHost: p.socketId === room.hostId
+      isHost: p.socketId === room.hostId, matchesWon: p.matchesWon || 0
     })),
     me: me ? {
       id: me.id, name: me.name, friendCode: me.friendCode, reconnectToken: me.reconnectToken,
       hand: me.hand, active: me.active, eliminated: me.eliminated, tricks: me.tricks,
-      doggieLifeUsed: me.doggieLifeUsed, doggieLifeGranted: me.doggieLifeGranted
+      doggieLifeUsed: me.doggieLifeUsed, doggieLifeGranted: me.doggieLifeGranted, matchesWon: me.matchesWon || 0
     } : null
   };
 }
@@ -217,6 +217,14 @@ function playCardForPlayer(room, player, cardId, automatic = false) {
   emitState(room);
   return { ok: true };
 }
+function recordMatchWinner(room) {
+  if (room.winRecorded || !room.winnerId) return;
+  const winner = room.players.find(p => p.id === room.winnerId);
+  if (!winner) return;
+  room.winRecorded = true;
+  winner.matchesWon = (winner.matchesWon || 0) + 1;
+  if (winner.socketId) io.to(winner.socketId).emit('matchWon', { matchesWon: winner.matchesWon });
+}
 function forfeitPlayer(room, player) {
   if (!player.active || player.eliminated) return;
   const wasCurrent = room.players[room.currentPlayerIndex]?.id === player.id;
@@ -231,6 +239,7 @@ function forfeitPlayer(room, player) {
     room.winnerId = survivors[0]?.id || null;
     room.message = survivors[0] ? `${survivors[0].name} wins the game!` : 'Game ended with no winner.';
     addChat(room, null, room.message, true);
+    recordMatchWinner(room);
     emitState(room);
     return;
   }
@@ -255,6 +264,7 @@ function beginRound(room) {
     room.winnerId = active[0]?.id || null;
     room.message = active[0] ? `${active[0].name} wins the game!` : 'No winner.';
     addChat(room, null, room.message, true);
+    recordMatchWinner(room);
     emitState(room);
     return;
   }
@@ -328,17 +338,19 @@ function endRound(room) {
     room.winnerId = survivors[0]?.id || result.winner.id;
     room.message += ` ${room.players.find(p => p.id === room.winnerId)?.name} wins the game!`;
     addChat(room, null, room.message, true);
+    recordMatchWinner(room);
   } else {
     room.phase = 'roundEnd';
     room.dealerIndex = nextActiveIndex(room, room.dealerIndex);
   }
   emitState(room);
 }
-function createPlayer(socket, name, friendCode) {
+function createPlayer(socket, name, friendCode, matchesWon = 0) {
   return {
     id: crypto.randomUUID(), socketId: socket.id, reconnectToken: crypto.randomUUID(),
     name, friendCode, connected: true, active: true, eliminated: false,
-    doggieLifeUsed: false, doggieLifeGranted: false, tricks: 0, hand: []
+    doggieLifeUsed: false, doggieLifeGranted: false, tricks: 0, hand: [],
+    matchesWon: Math.max(0, Number(matchesWon) || 0)
   };
 }
 function attach(socket, room, player) {
@@ -364,19 +376,19 @@ io.on('connection', socket => {
     broadcastPresence();
   });
 
-  socket.on('createRoom', ({ name, friendCode, isPublic = false, roomName = '', maxPlayers = 8 }, cb) => {
+  socket.on('createRoom', ({ name, friendCode, matchesWon = 0, isPublic = false, roomName = '', maxPlayers = 8 }, cb) => {
     name = cleanName(name);
     friendCode = cleanCode(friendCode).slice(0, 12);
     if (!name) return reply(cb, { error: 'Enter a player name.' });
     let code; do code = roomCode(); while (rooms.has(code));
-    const player = createPlayer(socket, name, friendCode);
+    const player = createPlayer(socket, name, friendCode, matchesWon);
     const room = {
       code, name: cleanName(roomName) || `${name}'s table`, isPublic: Boolean(isPublic),
       maxPlayers: Math.min(8, Math.max(2, Number(maxPlayers) || 8)), hostId: socket.id,
       players: [player], phase: 'lobby', round: 0, cardsPerPlayer: 0, dealerIndex: 0,
       currentPlayerIndex: 0, leaderIndex: 0, trumpSuit: null, turnedCard: null,
       trick: [], message: 'Waiting for players.', previousRoundWinnerId: null,
-      winnerId: null, chat: [], turnTimer: null, turnDeadline: null
+      winnerId: null, winRecorded: false, chat: [], turnTimer: null, turnDeadline: null
     };
     addChat(room, null, `${name} created the room.`, true);
     rooms.set(code, room);
@@ -386,7 +398,7 @@ io.on('connection', socket => {
     broadcastPublicRooms();
   });
 
-  socket.on('joinRoom', ({ name, friendCode, code }, cb) => {
+  socket.on('joinRoom', ({ name, friendCode, matchesWon = 0, code }, cb) => {
     name = cleanName(name); friendCode = cleanCode(friendCode).slice(0, 12); code = cleanCode(code);
     const room = rooms.get(code);
     if (!room) return reply(cb, { error: 'Room not found.' });
@@ -394,7 +406,7 @@ io.on('connection', socket => {
     if (room.players.length >= room.maxPlayers) return reply(cb, { error: 'Room is full.' });
     if (!name) return reply(cb, { error: 'Enter a player name.' });
     if (room.players.some(p => p.name.toLowerCase() === name.toLowerCase())) return reply(cb, { error: 'That name is already in use.' });
-    const player = createPlayer(socket, name, friendCode);
+    const player = createPlayer(socket, name, friendCode, matchesWon);
     room.players.push(player); attach(socket, room, player);
     addChat(room, null, `${name} joined the room.`, true);
     reply(cb, { ok: true, reconnectToken: player.reconnectToken });
@@ -414,8 +426,8 @@ io.on('connection', socket => {
     const room = rooms.get(socket.data.roomCode);
     if (!room || room.hostId !== socket.id) return reply(cb, { error: 'Only the host can start.' });
     if (room.players.length < 2) return reply(cb, { error: 'At least 2 players are required.' });
-    room.round = 1; room.dealerIndex = 0;
-    room.players.forEach(p => { p.active = true; p.eliminated = false; });
+    room.round = 1; room.dealerIndex = 0; room.winRecorded = false; room.winnerId = null;
+    room.players.forEach(p => { p.active = true; p.eliminated = false; p.doggieLifeUsed = false; p.doggieLifeGranted = false; p.tricks = 0; p.hand = []; });
     beginRound(room); reply(cb, { ok: true }); broadcastPublicRooms();
   });
 
@@ -456,6 +468,24 @@ io.on('connection', socket => {
     if (!room || !sender) return reply(cb, { error: 'Room unavailable.' });
     io.to(target.socketId).emit('gameInvite', { roomCode: room.code, roomName: room.name, from: sender.name });
     reply(cb, { ok: true });
+  });
+
+
+  socket.on('playAgain', (_payload, cb) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room || room.phase !== 'gameOver') return reply(cb, { error: 'The match is not over.' });
+    if (room.hostId !== socket.id) return reply(cb, { error: 'Waiting for the host to set up the next game.' });
+    clearTurnTimer(room);
+    room.players = room.players.filter(p => p.connected && p.socketId);
+    if (room.players.length < 1) { rooms.delete(room.code); return reply(cb, { error: 'No players remain.' }); }
+    room.hostId = room.players[0].socketId;
+    room.phase = 'lobby'; room.round = 0; room.cardsPerPlayer = 0; room.dealerIndex = 0;
+    room.currentPlayerIndex = 0; room.leaderIndex = 0; room.trumpSuit = null; room.turnedCard = null;
+    room.trick = []; room.message = 'Waiting for the host to start the next game.';
+    room.previousRoundWinnerId = null; room.winnerId = null; room.winRecorded = false;
+    room.players.forEach(p => { p.active = true; p.eliminated = false; p.doggieLifeUsed = false; p.doggieLifeGranted = false; p.tricks = 0; p.hand = []; });
+    addChat(room, null, 'The host opened a new match. Waiting for the host to start.', true);
+    emitState(room); broadcastPublicRooms(); reply(cb, { ok: true });
   });
 
   socket.on('forfeitGame', (_payload, cb) => {
