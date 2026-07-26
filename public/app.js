@@ -123,6 +123,12 @@ function restartTimerDisplay(){clearInterval(timerTick);updateTimer();timerTick=
 function renderGame(){
   $('roomName').textContent=state.roomName;$('roomCode').textContent=state.code;$('bigRoomCode').textContent=state.code;
   $('lobby').hidden=state.phase!=='lobby';$('table').hidden=state.phase==='lobby';
+  // The winner overlay is outside the table section, so it must be cleared
+  // explicitly when a rematch returns the room to the lobby.
+  if(state.phase!=='gameOver'){
+    $('winnerOverlay').hidden=true;
+    $('winnerOverlay').dataset.winner='';
+  }
   $('chatUnread').textContent=unread?String(unread):'';renderChat();
   if(state.phase==='lobby')renderLobby();else renderTable();
   restartTimerDisplay();

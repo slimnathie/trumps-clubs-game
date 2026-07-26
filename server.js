@@ -425,7 +425,10 @@ io.on('connection', socket => {
   socket.on('startGame', (_payload, cb) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room || room.hostId !== socket.id) return reply(cb, { error: 'Only the host can start.' });
-    if (room.players.length < 2) return reply(cb, { error: 'At least 2 players are required.' });
+    if (room.phase !== 'lobby') return reply(cb, { error: 'Return the room to the lobby before starting.' });
+    const connectedPlayers = room.players.filter(p => p.connected && p.socketId);
+    if (connectedPlayers.length < 2) return reply(cb, { error: 'At least 2 connected players are required.' });
+    room.players = connectedPlayers;
     room.round = 1; room.dealerIndex = 0; room.winRecorded = false; room.winnerId = null;
     room.players.forEach(p => { p.active = true; p.eliminated = false; p.doggieLifeUsed = false; p.doggieLifeGranted = false; p.tricks = 0; p.hand = []; });
     beginRound(room); reply(cb, { ok: true }); broadcastPublicRooms();
@@ -478,7 +481,8 @@ io.on('connection', socket => {
     clearTurnTimer(room);
     room.players = room.players.filter(p => p.connected && p.socketId);
     if (room.players.length < 1) { rooms.delete(room.code); return reply(cb, { error: 'No players remain.' }); }
-    room.hostId = room.players[0].socketId;
+    const currentHost = room.players.find(p => p.socketId === room.hostId);
+    room.hostId = (currentHost || room.players[0]).socketId;
     room.phase = 'lobby'; room.round = 0; room.cardsPerPlayer = 0; room.dealerIndex = 0;
     room.currentPlayerIndex = 0; room.leaderIndex = 0; room.trumpSuit = null; room.turnedCard = null;
     room.trick = []; room.message = 'Waiting for the host to start the next game.';
