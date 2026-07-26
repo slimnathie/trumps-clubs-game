@@ -117,12 +117,12 @@ function stateFor(room, socketId) {
       id: p.id, name: p.name, friendCode: p.friendCode, connected: p.connected,
       active: p.active, eliminated: p.eliminated, doggieLifeUsed: p.doggieLifeUsed,
       doggieLifeGranted: p.doggieLifeGranted, tricks: p.tricks, handCount: p.hand.length,
-      isHost: p.socketId === room.hostId, matchesWon: p.matchesWon || 0
+      isHost: p.socketId === room.hostId, matchesWon: p.matchesWon || 0, ready: Boolean(p.ready)
     })),
     me: me ? {
       id: me.id, name: me.name, friendCode: me.friendCode, reconnectToken: me.reconnectToken,
       hand: me.hand, active: me.active, eliminated: me.eliminated, tricks: me.tricks,
-      doggieLifeUsed: me.doggieLifeUsed, doggieLifeGranted: me.doggieLifeGranted, matchesWon: me.matchesWon || 0
+      doggieLifeUsed: me.doggieLifeUsed, doggieLifeGranted: me.doggieLifeGranted, matchesWon: me.matchesWon || 0, ready: Boolean(me.ready)
     } : null
   };
 }
@@ -350,7 +350,7 @@ function createPlayer(socket, name, friendCode, matchesWon = 0) {
     id: crypto.randomUUID(), socketId: socket.id, reconnectToken: crypto.randomUUID(),
     name, friendCode, connected: true, active: true, eliminated: false,
     doggieLifeUsed: false, doggieLifeGranted: false, tricks: 0, hand: [],
-    matchesWon: Math.max(0, Number(matchesWon) || 0)
+    matchesWon: Math.max(0, Number(matchesWon) || 0), ready: false
   };
 }
 function attach(socket, room, player) {
@@ -407,6 +407,7 @@ io.on('connection', socket => {
     if (!name) return reply(cb, { error: 'Enter a player name.' });
     if (room.players.some(p => p.name.toLowerCase() === name.toLowerCase())) return reply(cb, { error: 'That name is already in use.' });
     const player = createPlayer(socket, name, friendCode, matchesWon);
+    room.players.forEach(p => { p.ready = false; });
     room.players.push(player); attach(socket, room, player);
     addChat(room, null, `${name} joined the room.`, true);
     reply(cb, { ok: true, reconnectToken: player.reconnectToken });
@@ -422,15 +423,28 @@ io.on('connection', socket => {
     reply(cb, { ok: true }); emitState(room);
   });
 
+  socket.on('setReady', ({ ready }, cb) => {
+    const room = rooms.get(socket.data.roomCode);
+    const player = room?.players.find(p => p.id === socket.data.playerId);
+    if (!room || !player || room.phase !== 'lobby') return reply(cb, { error: 'You can only change readiness in the lobby.' });
+    if (!player.connected) return reply(cb, { error: 'Player is disconnected.' });
+    player.ready = Boolean(ready);
+    addChat(room, null, `${player.name} is ${player.ready ? 'ready' : 'not ready'}.`, true);
+    emitState(room);
+    reply(cb, { ok: true });
+  });
+
   socket.on('startGame', (_payload, cb) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room || room.hostId !== socket.id) return reply(cb, { error: 'Only the host can start.' });
     if (room.phase !== 'lobby') return reply(cb, { error: 'Return the room to the lobby before starting.' });
     const connectedPlayers = room.players.filter(p => p.connected && p.socketId);
     if (connectedPlayers.length < 2) return reply(cb, { error: 'At least 2 connected players are required.' });
+    const notReady = connectedPlayers.filter(p => !p.ready);
+    if (notReady.length) return reply(cb, { error: `Waiting for: ${notReady.map(p => p.name).join(', ')}` });
     room.players = connectedPlayers;
     room.round = 1; room.dealerIndex = 0; room.winRecorded = false; room.winnerId = null;
-    room.players.forEach(p => { p.active = true; p.eliminated = false; p.doggieLifeUsed = false; p.doggieLifeGranted = false; p.tricks = 0; p.hand = []; });
+    room.players.forEach(p => { p.active = true; p.eliminated = false; p.doggieLifeUsed = false; p.doggieLifeGranted = false; p.tricks = 0; p.hand = []; p.ready = false; });
     beginRound(room); reply(cb, { ok: true }); broadcastPublicRooms();
   });
 
@@ -487,8 +501,8 @@ io.on('connection', socket => {
     room.currentPlayerIndex = 0; room.leaderIndex = 0; room.trumpSuit = null; room.turnedCard = null;
     room.trick = []; room.message = 'Waiting for the host to start the next game.';
     room.previousRoundWinnerId = null; room.winnerId = null; room.winRecorded = false;
-    room.players.forEach(p => { p.active = true; p.eliminated = false; p.doggieLifeUsed = false; p.doggieLifeGranted = false; p.tricks = 0; p.hand = []; });
-    addChat(room, null, 'The host opened a new match. Waiting for the host to start.', true);
+    room.players.forEach(p => { p.active = true; p.eliminated = false; p.doggieLifeUsed = false; p.doggieLifeGranted = false; p.tricks = 0; p.hand = []; p.ready = false; });
+    addChat(room, null, 'The host opened a new match. Everyone must press Ready.', true);
     emitState(room); broadcastPublicRooms(); reply(cb, { ok: true });
   });
 
@@ -511,7 +525,7 @@ io.on('connection', socket => {
       if (!room.players.length) rooms.delete(room.code);
       else if (room.hostId === socket.id) room.hostId = room.players.find(p => p.connected)?.socketId || null;
     } else {
-      player.connected = false; player.socketId = null;
+      player.connected = false; player.socketId = null; player.ready = false;
     }
     socket.data.roomCode = null; socket.data.playerId = null;
     setPresence({ ...player, socketId: socket.id }, null);
@@ -523,7 +537,7 @@ io.on('connection', socket => {
     const room = rooms.get(socket.data.roomCode);
     const player = room?.players.find(p => p.id === socket.data.playerId);
     if (player) {
-      player.connected = false; player.socketId = null;
+      player.connected = false; player.socketId = null; player.ready = false;
       if (room.hostId === socket.id) room.hostId = room.players.find(p => p.connected)?.socketId || null;
       emitState(room);
     }

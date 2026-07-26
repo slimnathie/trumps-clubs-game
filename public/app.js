@@ -23,6 +23,7 @@ $('myFriendCode').textContent = profile.friendCode;
 $('myMatchesWon').textContent = profile.matchesWon;
 $('soundToggle').textContent = audioEnabled ? '🔊' : '🔇';
 
+function shortName(name,max=10){const value=String(name||'Player');return value.length>max?`${value.slice(0,max-1)}…`:value;}
 function makeFriendCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({length:8},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
@@ -134,11 +135,23 @@ function renderGame(){
   restartTimerDisplay();
 }
 function renderLobby(){
-  $('lobbyStatus').textContent=`${state.players.length}/${state.maxPlayers} players · ${state.isPublic?'Public':'Private'}`;
+  const connected=state.players.filter(p=>p.connected);
+  const readyCount=connected.filter(p=>p.ready).length;
+  $('lobbyStatus').textContent=`${readyCount}/${connected.length} ready · ${state.isPublic?'Public':'Private'}`;
   const wrap=$('lobbyPlayers');wrap.innerHTML='';state.players.forEach(p=>{
-    const el=document.createElement('div');el.className='player-row';el.innerHTML=`<div class="player-avatar">${escapeHtml(p.name[0]?.toUpperCase()||'?')}</div><div><strong>${escapeHtml(p.name)}${p.id===state.me.id?' (you)':''}</strong><span>${p.isHost?'Host · ':''}${p.connected?'Ready':'Disconnected'} · ${p.matchesWon||0} match win${(p.matchesWon||0)===1?'':'s'}</span></div>`;wrap.appendChild(el);
+    const el=document.createElement('div');el.className=`player-row ${p.ready?'is-ready':''}`;
+    el.innerHTML=`<div class="player-name-badge" title="${escapeHtml(p.name)}">${escapeHtml(shortName(p.name))}</div><div><strong>${p.id===state.me.id?'You':escapeHtml(shortName(p.name,14))}</strong><span>${p.isHost?'Host · ':''}${!p.connected?'Disconnected':p.ready?'Ready ✓':'Not ready'} · ${p.matchesWon||0} match win${(p.matchesWon||0)===1?'':'s'}</span></div>`;
+    wrap.appendChild(el);
   });
-  $('start').hidden=state.hostId!==socket.id;
+  const ready=$('readyButton');
+  ready.hidden=!state.me?.connected;
+  ready.textContent=state.me?.ready?'Ready ✓ — tap to cancel':'I’m ready';
+  ready.classList.toggle('active',Boolean(state.me?.ready));
+  const start=$('start');
+  start.hidden=state.hostId!==socket.id;
+  const allReady=connected.length>=2&&connected.every(p=>p.ready);
+  start.disabled=!allReady;
+  start.textContent=allReady?'Start game':`Waiting for players (${readyCount}/${connected.length})`;
 }
 function renderTable(){
   $('roundLabel').textContent=`Round ${state.round} · ${state.cardsPerPlayer} card${state.cardsPerPlayer===1?'':'s'}`;
@@ -148,7 +161,7 @@ function renderTable(){
   const opponents=$('opponents');opponents.innerHTML='';state.players.filter(p=>p.id!==state.me?.id).forEach(p=>{
     const el=document.createElement('div');el.className='opponent';
     const backs=Array.from({length:Math.min(4,p.handCount)},()=>'<i class="card-back-mini"></i>').join('');
-    el.innerHTML=`<div class="mini-hand">${backs}</div><strong>${escapeHtml(p.name)}</strong><small>${p.tricks} trick${p.tricks===1?'':'s'} · ${p.matchesWon||0} match win${(p.matchesWon||0)===1?'':'s'}${p.eliminated?' · out':''}</small>`;opponents.appendChild(el);
+    el.innerHTML=`<div class="mini-hand">${backs}</div><strong class="opponent-name" title="${escapeHtml(p.name)}">${escapeHtml(shortName(p.name,11))}</strong><small>${p.tricks} trick${p.tricks===1?'':'s'} · ${p.matchesWon||0} match win${(p.matchesWon||0)===1?'':'s'}${p.eliminated?' · out':''}</small>`;opponents.appendChild(el);
   });
   const trick=$('trick');trick.innerHTML='';if(!state.trick.length)trick.innerHTML='<span class="placeholder">Waiting for the lead…</span>';state.trick.forEach(t=>{
     const wrap=document.createElement('div');wrap.className='played-card';wrap.appendChild(cardEl(t.card));const name=document.createElement('small');name.textContent=state.players.find(p=>p.id===t.playerId)?.name||'';wrap.appendChild(name);trick.appendChild(wrap);
@@ -193,6 +206,7 @@ $('openCreatePrivate').onclick=()=>{createPublic=false;$('createTitle').textCont
 $('confirmCreate').onclick=async e=>{e.preventDefault();const r=await act('createRoom',{...commonPayload(),isPublic:createPublic,roomName:$('newRoomName').value,maxPlayers:$('maxPlayers').value});if(r?.error){$('homeError').textContent=r.error;return;}$('createDialog').close();storeSession(r.code,r.reconnectToken);};
 $('joinPrivate').onclick=()=>joinCode($('joinCode').value);
 $('addFriend').onclick=()=>{const code=$('friendCodeInput').value.trim().toUpperCase();if(!code||code===profile.friendCode)return toast('Enter a different friend code');if(!profile.friends.some(f=>f.code===code))profile.friends.push({code,name:presence.find(p=>p.friendCode===code)?.name||code});$('friendCodeInput').value='';saveProfile();renderFriends();};
+$('readyButton').onclick=async()=>{const r=await act('setReady',{ready:!state.me?.ready});if(r?.error)toast(r.error);};
 $('start').onclick=async()=>{const r=await act('startGame');if(r?.error)toast(r.error);};
 $('nextRound').onclick=async()=>{const r=await act('nextRound');if(r?.error)toast(r.error);};
 async function leaveToHome(){await act('leaveRoom');clearSession();state=null;clearInterval(timerTick);showScreen('home');}
