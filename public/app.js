@@ -144,7 +144,7 @@ function renderLobby(){
     wrap.appendChild(el);
   });
   const ready=$('readyButton');
-  ready.hidden=!state.me?.connected;
+  ready.hidden=false;
   ready.textContent=state.me?.ready?'Ready ✓ — tap to cancel':'I’m ready';
   ready.classList.toggle('active',Boolean(state.me?.ready));
   const start=$('start');

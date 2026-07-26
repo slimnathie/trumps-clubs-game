@@ -122,7 +122,7 @@ function stateFor(room, socketId) {
     me: me ? {
       id: me.id, name: me.name, friendCode: me.friendCode, reconnectToken: me.reconnectToken,
       hand: me.hand, active: me.active, eliminated: me.eliminated, tricks: me.tricks,
-      doggieLifeUsed: me.doggieLifeUsed, doggieLifeGranted: me.doggieLifeGranted, matchesWon: me.matchesWon || 0, ready: Boolean(me.ready)
+      doggieLifeUsed: me.doggieLifeUsed, doggieLifeGranted: me.doggieLifeGranted, matchesWon: me.matchesWon || 0, ready: Boolean(me.ready), connected: Boolean(me.connected)
     } : null
   };
 }
